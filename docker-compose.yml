@@ -4,14 +4,14 @@ services:
     ports:
       - 127.0.0.1:5432:5432
     environment:
-      POSTGRES_USER: flexprice
-      POSTGRES_PASSWORD: flexprice123
-      POSTGRES_DB: flexprice
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-flexprice}
     volumes:
       - ./migrations/postgres:/docker-entrypoint-initdb.d/
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: pg_isready -U flexprice -d flexprice
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-flexprice}"]
       interval: 5s
       timeout: 3s
       retries: 100
@@ -21,7 +21,7 @@ services:
     ports:
       - "127.0.0.1:29092:29092"
     environment:
-      CLUSTER_ID: ca497efe-9f82-4b84-890b-d9969a9a2e1c
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:-ca497efe-9f82-4b84-890b-d9969a9a2e1c}
       KAFKA_BROKER_ID: 0
       KAFKA_PROCESS_ROLES: "broker,controller"
       KAFKA_CONTROLLER_QUORUM_VOTERS: "0@kafka:9093"
@@ -50,9 +50,9 @@ services:
       - "127.0.0.1:9000:9000"
       - "127.0.0.1:9009:9009"
     environment:
-      CLICKHOUSE_USER: flexprice
-      CLICKHOUSE_PASSWORD: flexprice123
-      CLICKHOUSE_DB: flexprice
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:?CLICKHOUSE_USER is required}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?CLICKHOUSE_PASSWORD is required}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-flexprice}
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
     volumes:
       - clickhouse-data:/var/lib/clickhouse
@@ -75,8 +75,8 @@ services:
     ports:
       - "127.0.0.1:8084:8080"
     environment:
-      KAFKA_CLUSTERS_0_NAME: local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_NAME: ${KAFKA_UI_CLUSTER_NAME:-local}
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
       DYNAMIC_CONFIG_ENABLED: "true"
     healthcheck:
       test: ["CMD", "wget", "--spider", "http://kafka-ui:8080/"]
@@ -91,14 +91,14 @@ services:
     environment:
       - ENABLE_ES=false
       - DB=postgres12
-      - DB_PORT=5432
-      - DB_USER=flexprice
-      - DB_PWD=flexprice123
-      - DB_NAME=temporal
-      - DB_HOST=postgres
-      - POSTGRES_USER=flexprice
-      - POSTGRES_PWD=flexprice123
-      - POSTGRES_SEEDS=postgres
+      - DB_PORT=${POSTGRES_PORT:-5432}
+      - DB_USER=${TEMPORAL_DB_USER:?TEMPORAL_DB_USER is required}
+      - DB_PWD=${TEMPORAL_DB_PASSWORD:?TEMPORAL_DB_PASSWORD is required}
+      - DB_NAME=${TEMPORAL_DB_NAME:-temporal}
+      - DB_HOST=${POSTGRES_HOST:-postgres}
+      - POSTGRES_USER=${POSTGRES_USER:?POSTGRES_USER is required}
+      - POSTGRES_PWD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      - POSTGRES_SEEDS=${POSTGRES_HOST:-postgres}
       - TEMPORAL_PERSISTENCE_SCHEMA_DIR=/etc/temporal/schema/postgresql/v96/temporal/versioned
     depends_on:
       postgres:
@@ -109,7 +109,7 @@ services:
     ports:
       - "127.0.0.1:8088:8080"
     environment:
-      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_ADDRESS=${TEMPORAL_ADDRESS:-temporal:7233}
     depends_on:
       - temporal
 
@@ -139,15 +139,15 @@ services:
     environment:
       - FLEXPRICE_DEPLOYMENT_MODE=api
       # Override config.yaml settings for containerized environment
-      - FLEXPRICE_POSTGRES_HOST=postgres
-      - FLEXPRICE_POSTGRES_READER_HOST=postgres
-      - FLEXPRICE_KAFKA_BROKERS=kafka:9092
-      - FLEXPRICE_CLICKHOUSE_ADDRESS=clickhouse:9000
-      - FLEXPRICE_TEMPORAL_ADDRESS=temporal:7233
-      # Auth: API key mode — raw key is sk_local_flexprice_test_key
-      - FLEXPRICE_AUTH_PROVIDER=api_key
-      - FLEXPRICE_AUTH_API_KEY_HEADER=x-api-key
-      - 'FLEXPRICE_AUTH_API_KEY_KEYS={"0cfd568f22158887f8b77bc019fb245b1f14077b80936342b052985efa7de46c":{"tenant_id":"00000000-0000-0000-0000-000000000000","user_id":"00000000-0000-0000-0000-000000000000"}}'
+      - FLEXPRICE_POSTGRES_HOST=${POSTGRES_HOST:-postgres}
+      - FLEXPRICE_POSTGRES_READER_HOST=${POSTGRES_READER_HOST:-postgres}
+      - FLEXPRICE_KAFKA_BROKERS=${KAFKA_BROKERS:-kafka:9092}
+      - FLEXPRICE_CLICKHOUSE_ADDRESS=${CLICKHOUSE_ADDRESS:-clickhouse:9000}
+      - FLEXPRICE_TEMPORAL_ADDRESS=${TEMPORAL_ADDRESS:-temporal:7233}
+      # Auth: API key mode — secret values provided via environment
+      - FLEXPRICE_AUTH_PROVIDER=${FLEXPRICE_AUTH_PROVIDER:-api_key}
+      - FLEXPRICE_AUTH_API_KEY_HEADER=${FLEXPRICE_AUTH_API_KEY_HEADER:-x-api-key}
+      - FLEXPRICE_AUTH_API_KEY_KEYS=${FLEXPRICE_AUTH_API_KEY_KEYS:?FLEXPRICE_AUTH_API_KEY_KEYS is required}
     volumes:
       - ./internal/config:/app/internal/config
     restart: unless-stopped
@@ -166,15 +166,15 @@ services:
     environment:
       - FLEXPRICE_DEPLOYMENT_MODE=consumer
       # Override config.yaml settings for containerized environment
-      - FLEXPRICE_POSTGRES_HOST=postgres
-      - FLEXPRICE_POSTGRES_READER_HOST=postgres
-      - FLEXPRICE_KAFKA_BROKERS=kafka:9092
-      - FLEXPRICE_CLICKHOUSE_ADDRESS=clickhouse:9000
-      - FLEXPRICE_TEMPORAL_ADDRESS=temporal:7233
-      # Auth: API key mode — raw key is sk_local_flexprice_test_key
-      - FLEXPRICE_AUTH_PROVIDER=api_key
-      - FLEXPRICE_AUTH_API_KEY_HEADER=x-api-key
-      - 'FLEXPRICE_AUTH_API_KEY_KEYS={"0cfd568f22158887f8b77bc019fb245b1f14077b80936342b052985efa7de46c":{"tenant_id":"00000000-0000-0000-0000-000000000000","user_id":"00000000-0000-0000-0000-000000000000"}}'
+      - FLEXPRICE_POSTGRES_HOST=${POSTGRES_HOST:-postgres}
+      - FLEXPRICE_POSTGRES_READER_HOST=${POSTGRES_READER_HOST:-postgres}
+      - FLEXPRICE_KAFKA_BROKERS=${KAFKA_BROKERS:-kafka:9092}
+      - FLEXPRICE_CLICKHOUSE_ADDRESS=${CLICKHOUSE_ADDRESS:-clickhouse:9000}
+      - FLEXPRICE_TEMPORAL_ADDRESS=${TEMPORAL_ADDRESS:-temporal:7233}
+      # Auth: API key mode — secret values provided via environment
+      - FLEXPRICE_AUTH_PROVIDER=${FLEXPRICE_AUTH_PROVIDER:-api_key}
+      - FLEXPRICE_AUTH_API_KEY_HEADER=${FLEXPRICE_AUTH_API_KEY_HEADER:-x-api-key}
+      - FLEXPRICE_AUTH_API_KEY_KEYS=${FLEXPRICE_AUTH_API_KEY_KEYS:?FLEXPRICE_AUTH_API_KEY_KEYS is required}
     volumes:
       - ./internal/config:/app/internal/config
     restart: unless-stopped
@@ -193,15 +193,15 @@ services:
     environment:
       - FLEXPRICE_DEPLOYMENT_MODE=temporal_worker
       # Override config.yaml settings for containerized environment
-      - FLEXPRICE_POSTGRES_HOST=postgres
-      - FLEXPRICE_POSTGRES_READER_HOST=postgres
-      - FLEXPRICE_KAFKA_BROKERS=kafka:9092
-      - FLEXPRICE_CLICKHOUSE_ADDRESS=clickhouse:9000
-      - FLEXPRICE_TEMPORAL_ADDRESS=temporal:7233
-      # Auth: API key mode — raw key is sk_local_flexprice_test_key
-      - FLEXPRICE_AUTH_PROVIDER=api_key
-      - FLEXPRICE_AUTH_API_KEY_HEADER=x-api-key
-      - 'FLEXPRICE_AUTH_API_KEY_KEYS={"0cfd568f22158887f8b77bc019fb245b1f14077b80936342b052985efa7de46c":{"tenant_id":"00000000-0000-0000-0000-000000000000","user_id":"00000000-0000-0000-0000-000000000000"}}'
+      - FLEXPRICE_POSTGRES_HOST=${POSTGRES_HOST:-postgres}
+      - FLEXPRICE_POSTGRES_READER_HOST=${POSTGRES_READER_HOST:-postgres}
+      - FLEXPRICE_KAFKA_BROKERS=${KAFKA_BROKERS:-kafka:9092}
+      - FLEXPRICE_CLICKHOUSE_ADDRESS=${CLICKHOUSE_ADDRESS:-clickhouse:9000}
+      - FLEXPRICE_TEMPORAL_ADDRESS=${TEMPORAL_ADDRESS:-temporal:7233}
+      # Auth: API key mode — secret values provided via environment
+      - FLEXPRICE_AUTH_PROVIDER=${FLEXPRICE_AUTH_PROVIDER:-api_key}
+      - FLEXPRICE_AUTH_API_KEY_HEADER=${FLEXPRICE_AUTH_API_KEY_HEADER:-x-api-key}
+      - FLEXPRICE_AUTH_API_KEY_KEYS=${FLEXPRICE_AUTH_API_KEY_KEYS:?FLEXPRICE_AUTH_API_KEY_KEYS is required}
     volumes:
       - ./internal/config:/app/internal/config
     restart: unless-stopped
