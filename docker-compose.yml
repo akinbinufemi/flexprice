@@ -180,7 +180,7 @@ services:
       - ./internal/config:/app/internal/config
     restart: unless-stopped
 
-flexprice-worker:
+  flexprice-worker:
     image: flexprice-app:local
     build:
       context: .
